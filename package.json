@@ -1,0 +1,29 @@
+{
+  "name": "db_tables_links",
+  "version": "1.0.0",
+  "description": "tables, db, links, relations list",
+  "main": "structure.js",
+  "scripts": {
+    "test": "node app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RagazziMoscow/db_tables_links.git"
+  },
+  "keywords": [
+    "tables",
+    "db",
+    "relations",
+    "list",
+    "links"
+  ],
+  "author": "zz",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/RagazziMoscow/db_tables_links/issues"
+  },
+  "homepage": "https://github.com/RagazziMoscow/db_tables_links#readme",
+  "dependencies": {
+    "pg-structure": "^3.5.13"
+  }
+}
