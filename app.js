@@ -12,30 +12,32 @@ pgStructure(connectionArgs, ['public', 'cekavo'])
   .then((db) => {
 
 
-/*
-    // Basic
-    var tables = db.schemas.get('cekavo').tables; // Map of Table objects.
+    /*
+        // Basic
+        var tables = db.schemas.get('cekavo').tables; // Map of Table objects.
 
-    // List of table names
-    for (let table of tables.values()) {
-      console.log("Таблица ", table.name);
-
-
-      var relations = table.m2oRelations.values();
-      for (let relation of relations) {
-        console.log("Отношение ", relation.constraint.name, "между таблицами ",
-          relation.sourceTable.name, "и ", relation.targetTable.name);
-      }
+        // List of table names
+        for (let table of tables.values()) {
+          console.log("Таблица ", table.name);
 
 
-      for (let column of table.foreignKeyColumns.values()) {
-        console.log("Внешний ключ ", column.name);
-      }
+          var relations = table.m2oRelations.values();
+          for (let relation of relations) {
+            console.log("Отношение ", relation.constraint.name, "между таблицами ",
+              relation.sourceTable.name, "и ", relation.targetTable.name);
+          }
 
-    }
 
-*/
-  console.log(db.get('public').tables.get('Players').colums.get('Name').type);
+          for (let column of table.foreignKeyColumns.values()) {
+            console.log("Внешний ключ ", column.name);
+          }
+
+        }
+
+
+    */
+    console.log(db.get('public').tables);
+    //console.log(tables);
 
 
   })
