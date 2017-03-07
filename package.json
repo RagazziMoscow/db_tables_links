@@ -25,6 +25,6 @@
   "homepage": "https://github.com/RagazziMoscow/db_tables_links#readme",
   "dependencies": {
     "gulp": "^3.9.1",
-    "pg-structure": "^3.5.13"
+    "pg-structure": "^3.5.14"
   }
 }
