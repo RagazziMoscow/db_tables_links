@@ -1,7 +1,14 @@
 var pgStructure = require('pg-structure');
 
+/*
+  database: "xgb_nir",
+  user: "xgb_nir",
+  password: "accab9725sgh"
+*/
+
+
 var connectionArgs = {
-  database: "airoport",
+  database: "computer",
   user: "admin",
   password: "admin",
   host: "localhost",
@@ -15,7 +22,7 @@ function getIndependentTables(db, analyzedSchema) {
   var independentTablesArray = [];
   var tables = db.schemas.get(analyzedSchema).tables.values();
   for (table of tables) {
-    if (table.foreignKeyColumns.size === 0) {
+    if (table.foreignKeyColumns.size === 0 && !isView(db, analyzedSchema, table.name)) {
       //console.log("Для таблицы ", table.name, "внешние ключи отсутствуют");
       independentTablesArray.push(table.name);
     }
@@ -39,10 +46,12 @@ function getSequenceForView(db, analyzedSchema, independentTableName) {
   var table = getTable(db, analyzedSchema, independentTableName);
   var name = table.name;
 
+  // если в массиве такой таблицы ещё нет
   if (!analizedTables.includes(name)) {
-    console.log(name);
-    analizedTables.push(name);
 
+    //console.log(name);
+
+    analizedTables.push(name);
     if (table.o2mRelations.size != 0) {
       //console.log(table.o2mRelations.sourceTable);
       //getStructure(db, analyzedSchema, table.o2mRelations.targetTable);
@@ -57,6 +66,9 @@ function getSequenceForView(db, analyzedSchema, independentTableName) {
         getSequenceForView(db, analyzedSchema, relation.targetTable.name);
       }
     }
+
+
+
   }
 }
 
@@ -67,7 +79,7 @@ function getTable(db, analyzedSchema, tableName) {
 
 
 // получаем, существует ли отношение между таблицами
-function relationBetweenTables(db, analyzedSchema, firstTableName, secondTableName) {
+function isRelationBetweenTables(db, analyzedSchema, firstTableName, secondTableName) {
 
   var relations = getTable(db, analyzedSchema, firstTableName).relations;
   //console.log(relations);
@@ -79,6 +91,19 @@ function relationBetweenTables(db, analyzedSchema, firstTableName, secondTableNa
   }
 
   return false;
+}
+
+function getRelation(db, analyzedSchema, firstTableName, secondTableName) {
+  var relations = getTable(db, analyzedSchema, firstTableName).relations;
+  //console.log(relations);
+  for (let relation of relations.values()) {
+    //console.log(relation.targetTable.name);
+    if (relation.type != 'MANY TO MANY' && relation.targetTable.name == secondTableName) {
+      return relation;
+    }
+  }
+
+  return null;
 }
 
 
@@ -235,9 +260,48 @@ function getTargetTableColumn(relation) {
   return sourceColumn;
 }
 
+// получаем логическое значение, является ли данный объект представлением или базовой таблицей
+function isView(db, analyzedSchema, ObjectName) {
+  var analizedObject = getTable(db, analyzedSchema, ObjectName);
+  return Boolean(analizedObject.primaryKeyColumns.size == 0);
+}
 
 
 
+function getSQLForView(db, analyzedSchema) {
+
+  getSequenceForView(db, analyzedSchema, getIndependentTables(db, analyzedSchema)[0]);
+  console.log(analizedTables);
+
+  var SQLQuery = "set search_path to " + analyzedSchema + ";";
+  SQLQuery += "\n select * from ";
+  SQLQuery += analyzedSchema + '.' + analizedTables[0];
+
+  for (let i = 1; i < analizedTables.length; i++) {
+
+    for (let j = 0; j < i; j++) {
+
+      if (isRelationBetweenTables(db, analyzedSchema, analizedTables[i], analizedTables[j])) {
+
+        console.log(analizedTables[i], "->", analizedTables[j]);
+
+        let joinColumnTargetInfo = getTargetTableColumn(getRelation(db, analyzedSchema, analizedTables[i], analizedTables[j]));
+        let joinColumnSourceInfo = getSourceTableColumn(getRelation(db, analyzedSchema, analizedTables[i], analizedTables[j]));
+        SQLQuery += " full join " + analizedTables[i] +
+          " on " + analizedTables[j] + "." + joinColumnTargetInfo.name +
+          " = " + analizedTables[i] + "." + joinColumnSourceInfo.name + "\n";
+
+        break;
+
+      }
+    }
+
+  }
+
+  SQLQuery = SQLQuery.substring(0, SQLQuery.length - 1);
+  SQLQuery += ";";
+  console.log("Скрипт:\n", SQLQuery);
+}
 
 
 pgStructure(connectionArgs, analyzedSchema)
@@ -245,9 +309,16 @@ pgStructure(connectionArgs, analyzedSchema)
 
     //getSequenceForView(db, analyzedSchema, 'printer');
 
-    console.log(getRelationColumns(Array.from(getTable(db, analyzedSchema, 'passenger').o2mRelations)[0]));
-    //console.log(getTable(db, analyzedSchema, 'pass_in_trip').columns.get('id_psg').referencedColumns.size);
-    console.log(getTargetTableColumn(Array.from(getTable(db, analyzedSchema, 'passenger').o2mRelations)[0]));
+    //console.log(getRelationColumns(Array.from(getTable(db, analyzedSchema, 'passenger').o2mRelations)[0]));
+    //console.log(getAllTables(db, analyzedSchema));
+    //console.log(getSequenceForView(db, analyzedSchema, 'company'));
+    //console.log(analizedTables);
+    getSQLForView(db, analyzedSchema);
+    //console.log(getIndependentTables(db, analyzedSchema));
+    //console.log(getSourceTableColumn(getRelation(db, analyzedSchema, 'company', 'trip'))) ;
+
+
+    //console.log(getTargetTableColumn(Array.from(getTable(db, analyzedSchema, 'passenger').o2mRelations)[0]));
 
   })
   .catch(err => console.log(err.stack));
