@@ -8,7 +8,7 @@ var pgStructure = require('pg-structure');
 
 
 var connectionArgs = {
-  database: "computer",
+  database: "airoport",
   user: "admin",
   password: "admin",
   host: "localhost",
@@ -91,6 +91,11 @@ function isRelationBetweenTables(db, analyzedSchema, firstTableName, secondTable
   }
 
   return false;
+}
+
+function getTableColumns(db, analyzedSchema, tableName) {
+  var table = getTable(db, analyzedSchema, tableName);
+  return Array.from(table.columns.keys());
 }
 
 function getRelation(db, analyzedSchema, firstTableName, secondTableName) {
@@ -273,18 +278,52 @@ function getSQLForView(db, analyzedSchema) {
   getSequenceForView(db, analyzedSchema, getIndependentTables(db, analyzedSchema)[0]);
   console.log(analizedTables);
 
-  var SQLQuery = "set search_path to " + analyzedSchema + ";";
-  SQLQuery += "\n select * from ";
-  SQLQuery += analyzedSchema + '.' + analizedTables[0];
+  var SQLQuery = " from ";
+  SQLQuery += analizedTables[0];
 
+  var selectPart = ""; // первая часть запроса для select
+  var joinedColumns = []; // массив для учёта колонок с одинаковыми именами в разных таблицах
+
+
+  // для каждой таблицы делаем выборку колонок, если колонки повторяются, то заменяем имена псевдонимами
+  analizedTables.forEach((tableName) => {
+    var columnsList = getTableColumns(db, analyzedSchema, tableName);
+    //console.log(columnsList);
+    columnsList = columnsList.map(function(columnName) {
+
+      // если такое имя колонки ещё не встречалос
+      if (!joinedColumns.includes(columnName)) {
+
+        joinedColumns.push(columnName);
+        columnName = tableName + "." + columnName;
+
+      } else {
+
+        // добавляем псевдоним, если такое имя уже встречалось
+        columnName = tableName + "." + columnName + " AS " + columnName + "_" + tableName;
+      }
+
+
+      return columnName;
+    });
+
+    // разделям все имена запятой для выборки
+    columnsList = columnsList.join(', ') + ", \n";
+    selectPart += columnsList;
+  });
+  selectPart = selectPart.substring(0, selectPart.length - 3);
+  //console.log(selectPart);
+
+  // собираем часть запроса для join
   for (let i = 1; i < analizedTables.length; i++) {
 
     for (let j = 0; j < i; j++) {
 
+      // если между двумя таблицами существует отношение
       if (isRelationBetweenTables(db, analyzedSchema, analizedTables[i], analizedTables[j])) {
-
         console.log(analizedTables[i], "->", analizedTables[j]);
 
+        // определяем колонки для соединения таблиц
         let joinColumnTargetInfo = getTargetTableColumn(getRelation(db, analyzedSchema, analizedTables[i], analizedTables[j]));
         let joinColumnSourceInfo = getSourceTableColumn(getRelation(db, analyzedSchema, analizedTables[i], analizedTables[j]));
         SQLQuery += " full join " + analizedTables[i] +
@@ -294,12 +333,17 @@ function getSQLForView(db, analyzedSchema) {
         break;
 
       }
+
     }
 
   }
 
+  // соединяем части запроса select и join
+  //console.log(selectPart);
   SQLQuery = SQLQuery.substring(0, SQLQuery.length - 1);
   SQLQuery += ";";
+  SQLQuery = selectPart + SQLQuery;
+  SQLQuery = "set search_path to " + analyzedSchema + ";\n create view all_join as \n select " + SQLQuery;
   console.log("Скрипт:\n", SQLQuery);
 }
 
@@ -310,15 +354,18 @@ pgStructure(connectionArgs, analyzedSchema)
     //getSequenceForView(db, analyzedSchema, 'printer');
 
     //console.log(getRelationColumns(Array.from(getTable(db, analyzedSchema, 'passenger').o2mRelations)[0]));
-    //console.log(getAllTables(db, analyzedSchema));
-    //console.log(getSequenceForView(db, analyzedSchema, 'company'));
-    //console.log(analizedTables);
+
+
     getSQLForView(db, analyzedSchema);
+
+    /*
+    analizedTables.forEach(function(item) {
+      console.log(getTableColumns(db, analyzedSchema, item));
+    });
+    */
     //console.log(getIndependentTables(db, analyzedSchema));
     //console.log(getSourceTableColumn(getRelation(db, analyzedSchema, 'company', 'trip'))) ;
 
-
-    //console.log(getTargetTableColumn(Array.from(getTable(db, analyzedSchema, 'passenger').o2mRelations)[0]));
 
   })
   .catch(err => console.log(err.stack));
